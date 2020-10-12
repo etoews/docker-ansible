@@ -76,6 +76,14 @@ RUN set -eux \
 	&& chmod +x /usr/bin/kubectl \
 	&& kubectl version --client --short=true 2>&1 | grep -E 'v[.0-9]+'
 
+RUN set -eux \
+	&& curl -sS -L -o /tmp/openshift-client-linux.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz \
+	&& mkdir /tmp/openshift-client-linux/ \
+  && tar -xzf /tmp/openshift-client-linux.tar.gz -C /tmp/openshift-client-linux/ \
+	&& mv /tmp/openshift-client-linux/oc /usr/bin/oc-dynamically-linked \
+	&& echo -e '#!/bin/sh\n/lib/ld-musl-x86_64.so.1 --library-path /lib /usr/bin/oc-dynamically-linked "$@"' > /usr/bin/oc \
+	&& chmod +x /usr/bin/oc \
+	&& oc version --client
 
 FROM alpine:3.9 as production
 ARG VERSION
@@ -101,6 +109,8 @@ COPY --from=builder /usr/bin/yq /usr/bin/yq
 COPY --from=builder /usr/bin/aws /usr/bin/aws
 COPY --from=builder /usr/bin/aws-iam-authenticator /usr/bin/aws-iam-authenticator
 COPY --from=builder /usr/bin/kubectl /usr/bin/kubectl
+COPY --from=builder /usr/bin/oc-dynamically-linked /usr/bin/oc-dynamically-linked
+COPY --from=builder /usr/bin/oc /usr/bin/oc
 
 ENV \
 	MY_USER=ansible \
